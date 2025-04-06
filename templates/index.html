@@ -34,7 +34,7 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        textarea, select {
+        textarea, select, input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -62,6 +62,22 @@
             padding: 15px;
             border-radius: 4px;
             border-left: 4px solid #4a5568;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+        }
+        .result mark.existing {
+            background-color: #d1f0d1;
+            border-radius: 4px;
+            padding: 2px 5px;
+            font-weight: bold;
+            color: #2c662c;
+        }
+        .result mark.recommended {
+            background-color: #ffe6e6;
+            border-radius: 4px;
+            padding: 2px 5px;
+            font-weight: bold;
+            color: #a83e3e;
         }
         .loading {
             text-align: center;
@@ -81,11 +97,99 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .toggle-container label {
+            display: inline;
+            margin-right: 10px;
+        }
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .settings {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .settings h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Stylist4deepseek<br><small>个性化穿搭推荐</small></h1>
+        
+        <div class="toggle-container">
+            <label for="settings-toggle">高级设置:</label>
+            <label class="toggle">
+                <input type="checkbox" id="settings-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
+        <div class="settings hidden" id="settings-panel">
+            <h3>API设置</h3>
+            <div class="form-group">
+                <label for="api-key">Deepseek API密钥:</label>
+                <input type="password" id="api-key" placeholder="输入您的API密钥">
+            </div>
+            <div class="toggle-container">
+                <label for="use-api">使用Deepseek API:</label>
+                <label class="toggle">
+                    <input type="checkbox" id="use-api" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p style="font-size: 0.9em; color: #666;">
+                如果不使用API，将使用示例回答。使用API需要提供有效的密钥。
+            </p>
+        </div>
         
         <div class="form-group">
             <label for="scenario">场景选择：</label>
@@ -116,9 +220,24 @@
     </div>
 
     <script>
+        document.getElementById('settings-toggle').addEventListener('change', function() {
+            const settingsPanel = document.getElementById('settings-panel');
+            if (this.checked) {
+                settingsPanel.classList.remove('hidden');
+            } else {
+                settingsPanel.classList.add('hidden');
+            }
+        });
+        
+        // 如果默认使用API，自动打开设置面板
+        document.getElementById("settings-toggle").checked = true;
+document.getElementById("settings-panel").classList.remove("hidden");
+        
         document.getElementById('submit').addEventListener('click', function() {
             const scenario = document.getElementById('scenario').value;
             const query = document.getElementById('query').value;
+            const useApi = document.getElementById('use-api').checked;
+            const apiKey = document.getElementById('api-key').value;
             const resultElement = document.getElementById('result');
             const loadingElement = document.getElementById('loading');
             
@@ -134,14 +253,23 @@
                 },
                 body: JSON.stringify({
                     scenario: scenario,
-                    query: query
+                    query: query,
+                    use_api: useApi,
+                    api_key: apiKey
                 }),
             })
             .then(response => response.json())
             .then(data => {
                 // 隐藏加载动画，显示结果
                 loadingElement.style.display = 'none';
-                resultElement.textContent = data.recommendation;
+                
+                // 处理结果文本，高亮显示[衣橱已有]和[建议购买]标签
+                const recommendation = data.recommendation;
+                const formattedText = recommendation
+                    .replace(/\[衣橱已有\]/g, '<mark class="existing">[衣橱已有]</mark>')
+                    .replace(/\[建议购买\]/g, '<mark class="recommended">[建议购买]</mark>');
+                
+                resultElement.innerHTML = formattedText;
                 resultElement.style.display = 'block';
             })
             .catch((error) => {

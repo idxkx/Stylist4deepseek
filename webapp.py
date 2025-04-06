@@ -27,7 +27,9 @@ if not os.path.exists('templates'):
 # 创建简单的HTML模板
 @app.route('/create_template')
 def create_template():
-    # 从环境变量获取默认值
+    # 从环境变量获取默认值  
+    # 参数说明：
+    # USE_DEEPSEEK_API: 是否使用Deepseek API，默认值为true 
     use_api_default = os.environ.get("USE_DEEPSEEK_API", "").lower() in ['true', '1', 'yes']
     
     html_content = r"""
@@ -344,13 +346,17 @@ def get_recommendation():
         data = request.get_json()
         scenario = data.get('scenario', '')
         query = data.get('query', '')
-        use_api = data.get('use_api', False)
+        
+        # 修改：优先使用环境变量中的设置，如果.env中设置了USE_DEEPSEEK_API=true，则忽略前端传入的use_api值
+        env_use_api = os.environ.get("USE_DEEPSEEK_API", "").lower() in ['true', '1', 'yes']
+        use_api = env_use_api if env_use_api else data.get('use_api', False)
+        
         api_key = data.get('api_key', '').strip() or os.environ.get("DEEPSEEK_API_KEY", "").strip()
         
         print(f"\nWeb API请求:")
         print(f"- 场景: {scenario}")
         print(f"- 查询: {query}")
-        print(f"- 使用API: {use_api}")
+        print(f"- 使用API: {use_api} (环境变量设置: {env_use_api})")
         if api_key:
             masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "***"
             print(f"- API密钥: {masked_key} (长度: {len(api_key)})")
@@ -373,6 +379,10 @@ def get_recommendation():
         prompt = create_prompt(full_query, body_data, wardrobe_data, weather_data, stylist_template)
         
         # 生成穿搭建议
+        print(f"11生成穿搭建议的提示词: {prompt}") 
+        print(f"11use_api: {use_api}")
+        print(f"11api_key: {api_key}")
+
         recommendation = generate_outfit_recommendation(prompt, use_api=use_api, api_key=api_key)
         
         print("穿搭建议生成成功，长度:", len(recommendation))
