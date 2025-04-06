@@ -97,99 +97,30 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .toggle-container label {
-            display: inline;
-            margin-right: 10px;
-        }
-        .toggle {
-            position: relative;
+        .cursor {
             display: inline-block;
-            width: 60px;
-            height: 34px;
+            width: 2px;
+            height: 18px;
+            background-color: #333;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
         }
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #2196F3;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        .settings {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #f8f9fa;
-        }
-        .settings h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-        .hidden {
-            display: none;
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Stylist4deepseek<br><small>个性化穿搭推荐</small></h1>
-        
-        <div class="toggle-container">
-            <label for="settings-toggle">高级设置:</label>
-            <label class="toggle">
-                <input type="checkbox" id="settings-toggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-        
-        <div class="settings hidden" id="settings-panel">
-            <h3>API设置</h3>
-            <div class="form-group">
-                <label for="api-key">Deepseek API密钥:</label>
-                <input type="password" id="api-key" placeholder="输入您的API密钥">
-            </div>
-            <div class="toggle-container">
-                <label for="use-api">使用Deepseek API:</label>
-                <label class="toggle">
-                    <input type="checkbox" id="use-api" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <p style="font-size: 0.9em; color: #666;">
-                如果不使用API，将使用示例回答。使用API需要提供有效的密钥。
-            </p>
-        </div>
         
         <div class="form-group">
             <label for="scenario">场景选择：</label>
@@ -216,36 +147,30 @@
             <p>正在为您生成穿搭方案...</p>
         </div>
         
-        <div class="result" id="result" style="display:none;"></div>
+        <div class="result" id="result" style="display:none;">
+            <span id="content"></span><span class="cursor" id="typing-cursor"></span>
+        </div>
     </div>
+    
+    <footer>
+        穿搭建议基于环境配置自动使用最适合的生成方式
+    </footer>
 
     <script>
-        document.getElementById('settings-toggle').addEventListener('change', function() {
-            const settingsPanel = document.getElementById('settings-panel');
-            if (this.checked) {
-                settingsPanel.classList.remove('hidden');
-            } else {
-                settingsPanel.classList.add('hidden');
-            }
-        });
-        
-        // 如果默认使用API，自动打开设置面板
-        document.getElementById("settings-toggle").checked = true;
-document.getElementById("settings-panel").classList.remove("hidden");
-        
         document.getElementById('submit').addEventListener('click', function() {
             const scenario = document.getElementById('scenario').value;
             const query = document.getElementById('query').value;
-            const useApi = document.getElementById('use-api').checked;
-            const apiKey = document.getElementById('api-key').value;
             const resultElement = document.getElementById('result');
+            const contentElement = document.getElementById('content');
+            const cursorElement = document.getElementById('typing-cursor');
             const loadingElement = document.getElementById('loading');
             
             // 显示加载动画
             loadingElement.style.display = 'block';
             resultElement.style.display = 'none';
+            contentElement.textContent = '';
             
-            // 发送请求到后端
+            // 使用fetch API的流式响应功能
             fetch('/get_recommendation', {
                 method: 'POST',
                 headers: {
@@ -253,29 +178,60 @@ document.getElementById("settings-panel").classList.remove("hidden");
                 },
                 body: JSON.stringify({
                     scenario: scenario,
-                    query: query,
-                    use_api: useApi,
-                    api_key: apiKey
+                    query: query
                 }),
             })
-            .then(response => response.json())
-            .then(data => {
-                // 隐藏加载动画，显示结果
+            .then(response => {
+                // 隐藏加载动画，显示结果区域
                 loadingElement.style.display = 'none';
-                
-                // 处理结果文本，高亮显示[衣橱已有]和[建议购买]标签
-                const recommendation = data.recommendation;
-                const formattedText = recommendation
-                    .replace(/\[衣橱已有\]/g, '<mark class="existing">[衣橱已有]</mark>')
-                    .replace(/\[建议购买\]/g, '<mark class="recommended">[建议购买]</mark>');
-                
-                resultElement.innerHTML = formattedText;
                 resultElement.style.display = 'block';
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                // 读取流式数据
+                function readStream() {
+                    return reader.read().then(({ value, done }) => {
+                        if (done) {
+                            // 流结束后的处理
+                            cursorElement.style.display = 'none';
+                            return;
+                        }
+                        
+                        // 解码接收到的数据
+                        const text = decoder.decode(value, { stream: true });
+                        
+                        try {
+                            // 尝试解析JSON并提取推荐文本
+                            const jsonData = JSON.parse(text);
+                            if (jsonData.chunk) {
+                                // 处理文本片段，添加到内容区
+                                let chunk = jsonData.chunk;
+                                
+                                // 高亮[衣橱已有]和[建议购买]标签
+                                chunk = chunk
+                                    .replace(/\[衣橱已有\]/g, '<mark class="existing">[衣橱已有]</mark>')
+                                    .replace(/\[建议购买\]/g, '<mark class="recommended">[建议购买]</mark>');
+                                
+                                contentElement.innerHTML += chunk;
+                            }
+                        } catch (e) {
+                            // 不是有效的JSON，直接显示文本
+                            contentElement.textContent += text;
+                        }
+                        
+                        // 继续读取下一块数据
+                        return readStream();
+                    });
+                }
+                
+                return readStream();
             })
             .catch((error) => {
                 loadingElement.style.display = 'none';
-                resultElement.textContent = '获取穿搭建议时出错，请稍后再试。';
                 resultElement.style.display = 'block';
+                contentElement.textContent = '获取穿搭建议时出错，请稍后再试。';
+                cursorElement.style.display = 'none';
                 console.error('Error:', error);
             });
         });

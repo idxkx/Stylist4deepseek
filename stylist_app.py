@@ -269,6 +269,12 @@ def main():
     user_query = args.query if args.query else input("请描述你需要什么场合的穿搭建议: ")
     
     # 创建提示词
+    # 参数说明：
+    # user_query: 用户查询
+    # body_data: 用户个人信息
+    # wardrobe_data: 用户衣橱数据
+    # weather_data: 天气数据
+    # stylist_template: 穿搭顾问角色
     prompt = create_prompt(user_query, body_data, wardrobe_data, weather_data, stylist_template)
     
     # 是否使用API - 命令行参数优先，其次是环境变量

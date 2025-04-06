@@ -9,7 +9,7 @@ Deepseek API 客户端
 import os
 import json
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Iterator, Generator
 
 class DeepseekClient:
     """Deepseek API 客户端类"""
@@ -95,6 +95,90 @@ class DeepseekClient:
             if hasattr(e, 'response') and e.response:
                 print(f"响应内容: {e.response.text}")
             return {"error": str(e)}
+    
+    def chat_stream(self, prompt: str, model: str = "deepseek-chat", max_tokens: int = 2000,
+                   temperature: float = 0.7, top_p: float = 0.9) -> Generator[str, None, None]:
+        """
+        生成流式文本完成，逐字返回生成内容
+        
+        参数:
+            prompt: 提示词
+            model: 模型名称
+            max_tokens: 最大生成的令牌数
+            temperature: 温度参数，控制随机性
+            top_p: 核采样参数
+            
+        返回:
+            一个生成器，逐字产生生成的文本内容
+        """
+        endpoint = f"{self.api_base}/chat/completions"
+        
+        # 打印API密钥信息（调试用）
+        if self.api_key:
+            masked_key = self.api_key[:4] + "*" * (len(self.api_key) - 8) + self.api_key[-4:]
+            print(f"使用API密钥(流式): {masked_key}")
+            print(f"API密钥长度: {len(self.api_key)}")
+        else:
+            print("警告: 未设置API密钥")
+        
+        # 打印请求信息
+        print(f"请求流式API端点: {endpoint}")
+        print(f"使用模型: {model}")
+        print(f"最大令牌数: {max_tokens}")
+        print(f"温度参数: {temperature}")
+        
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "top_p": top_p,
+            "stream": True  # 启用流式传输
+        }
+        
+        try:
+            print("正在发送流式API请求...")
+            response = requests.post(endpoint, headers=self.headers, json=payload, stream=True)
+            
+            print(f"收到响应状态码: {response.status_code}")
+            if response.status_code != 200:
+                print(f"响应错误: {response.text}")
+                raise Exception(f"API返回错误: {response.status_code} - {response.text}")
+            
+            # 逐行处理SSE流式响应
+            for line in response.iter_lines():
+                if line:
+                    # 跳过"data: "前缀并解析JSON
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        line = line[6:]  # 去除"data: "前缀
+                        
+                        # 跳过心跳消息
+                        if line == '[DONE]':
+                            print("流式响应完成")
+                            break
+                        
+                        try:
+                            # 解析响应并提取内容
+                            data = json.loads(line)
+                            
+                            if 'choices' in data and len(data['choices']) > 0:
+                                choice = data['choices'][0]
+                                
+                                if 'delta' in choice and 'content' in choice['delta']:
+                                    content = choice['delta']['content']
+                                    if content:  # 跳过空内容
+                                        yield content
+                                
+                        except json.JSONDecodeError as e:
+                            print(f"JSON解析错误: {e}")
+                            print(f"原始行: {line}")
+                            
+        except Exception as e:
+            import traceback
+            print(f"流式API请求错误: {str(e)}")
+            print(traceback.format_exc())
+            yield f"\n[API错误: {str(e)}]"
     
     def extract_completion_text(self, response: Dict[Any, Any]) -> str:
         """

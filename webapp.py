@@ -6,10 +6,11 @@ Stylist4deepseek - Web应用界面
 提供基于Web的穿搭顾问交互界面
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 import os
 import sys
 import json
+import time
 from dotenv import load_dotenv
 
 # 加载环境变量
@@ -27,11 +28,6 @@ if not os.path.exists('templates'):
 # 创建简单的HTML模板
 @app.route('/create_template')
 def create_template():
-    # 从环境变量获取默认值  
-    # 参数说明：
-    # USE_DEEPSEEK_API: 是否使用Deepseek API，默认值为true 
-    use_api_default = os.environ.get("USE_DEEPSEEK_API", "").lower() in ['true', '1', 'yes']
-    
     html_content = r"""
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -131,99 +127,30 @@ def create_template():
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .toggle-container label {
-            display: inline;
-            margin-right: 10px;
-        }
-        .toggle {
-            position: relative;
+        .cursor {
             display: inline-block;
-            width: 60px;
-            height: 34px;
+            width: 2px;
+            height: 18px;
+            background-color: #333;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
         }
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #2196F3;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        .settings {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #f8f9fa;
-        }
-        .settings h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-        .hidden {
-            display: none;
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Stylist4deepseek<br><small>个性化穿搭推荐</small></h1>
-        
-        <div class="toggle-container">
-            <label for="settings-toggle">高级设置:</label>
-            <label class="toggle">
-                <input type="checkbox" id="settings-toggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-        
-        <div class="settings hidden" id="settings-panel">
-            <h3>API设置</h3>
-            <div class="form-group">
-                <label for="api-key">Deepseek API密钥:</label>
-                <input type="password" id="api-key" placeholder="输入您的API密钥">
-            </div>
-            <div class="toggle-container">
-                <label for="use-api">使用Deepseek API:</label>
-                <label class="toggle">
-                    <input type="checkbox" id="use-api" USEAPI_CHECKED>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <p style="font-size: 0.9em; color: #666;">
-                如果不使用API，将使用示例回答。使用API需要提供有效的密钥。
-            </p>
-        </div>
         
         <div class="form-group">
             <label for="scenario">场景选择：</label>
@@ -250,35 +177,30 @@ def create_template():
             <p>正在为您生成穿搭方案...</p>
         </div>
         
-        <div class="result" id="result" style="display:none;"></div>
+        <div class="result" id="result" style="display:none;">
+            <span id="content"></span><span class="cursor" id="typing-cursor"></span>
+        </div>
     </div>
+    
+    <footer>
+        穿搭建议基于环境配置自动使用最适合的生成方式
+    </footer>
 
     <script>
-        document.getElementById('settings-toggle').addEventListener('change', function() {
-            const settingsPanel = document.getElementById('settings-panel');
-            if (this.checked) {
-                settingsPanel.classList.remove('hidden');
-            } else {
-                settingsPanel.classList.add('hidden');
-            }
-        });
-        
-        // 如果默认使用API，自动打开设置面板
-        SETTINGS_PANEL_SCRIPT
-        
         document.getElementById('submit').addEventListener('click', function() {
             const scenario = document.getElementById('scenario').value;
             const query = document.getElementById('query').value;
-            const useApi = document.getElementById('use-api').checked;
-            const apiKey = document.getElementById('api-key').value;
             const resultElement = document.getElementById('result');
+            const contentElement = document.getElementById('content');
+            const cursorElement = document.getElementById('typing-cursor');
             const loadingElement = document.getElementById('loading');
             
             // 显示加载动画
             loadingElement.style.display = 'block';
             resultElement.style.display = 'none';
+            contentElement.textContent = '';
             
-            // 发送请求到后端
+            // 使用fetch API的流式响应功能
             fetch('/get_recommendation', {
                 method: 'POST',
                 headers: {
@@ -286,29 +208,60 @@ def create_template():
                 },
                 body: JSON.stringify({
                     scenario: scenario,
-                    query: query,
-                    use_api: useApi,
-                    api_key: apiKey
+                    query: query
                 }),
             })
-            .then(response => response.json())
-            .then(data => {
-                // 隐藏加载动画，显示结果
+            .then(response => {
+                // 隐藏加载动画，显示结果区域
                 loadingElement.style.display = 'none';
-                
-                // 处理结果文本，高亮显示[衣橱已有]和[建议购买]标签
-                const recommendation = data.recommendation;
-                const formattedText = recommendation
-                    .replace(/\[衣橱已有\]/g, '<mark class="existing">[衣橱已有]</mark>')
-                    .replace(/\[建议购买\]/g, '<mark class="recommended">[建议购买]</mark>');
-                
-                resultElement.innerHTML = formattedText;
                 resultElement.style.display = 'block';
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                // 读取流式数据
+                function readStream() {
+                    return reader.read().then(({ value, done }) => {
+                        if (done) {
+                            // 流结束后的处理
+                            cursorElement.style.display = 'none';
+                            return;
+                        }
+                        
+                        // 解码接收到的数据
+                        const text = decoder.decode(value, { stream: true });
+                        
+                        try {
+                            // 尝试解析JSON并提取推荐文本
+                            const jsonData = JSON.parse(text);
+                            if (jsonData.chunk) {
+                                // 处理文本片段，添加到内容区
+                                let chunk = jsonData.chunk;
+                                
+                                // 高亮[衣橱已有]和[建议购买]标签
+                                chunk = chunk
+                                    .replace(/\[衣橱已有\]/g, '<mark class="existing">[衣橱已有]</mark>')
+                                    .replace(/\[建议购买\]/g, '<mark class="recommended">[建议购买]</mark>');
+                                
+                                contentElement.innerHTML += chunk;
+                            }
+                        } catch (e) {
+                            // 不是有效的JSON，直接显示文本
+                            contentElement.textContent += text;
+                        }
+                        
+                        // 继续读取下一块数据
+                        return readStream();
+                    });
+                }
+                
+                return readStream();
             })
             .catch((error) => {
                 loadingElement.style.display = 'none';
-                resultElement.textContent = '获取穿搭建议时出错，请稍后再试。';
                 resultElement.style.display = 'block';
+                contentElement.textContent = '获取穿搭建议时出错，请稍后再试。';
+                cursorElement.style.display = 'none';
                 console.error('Error:', error);
             });
         });
@@ -316,14 +269,6 @@ def create_template():
 </body>
 </html>
     """
-    
-    # 根据环境变量替换模板中的占位符
-    if use_api_default:
-        html_content = html_content.replace('USEAPI_CHECKED', 'checked')
-        html_content = html_content.replace('SETTINGS_PANEL_SCRIPT', 'document.getElementById("settings-toggle").checked = true;\ndocument.getElementById("settings-panel").classList.remove("hidden");')
-    else:
-        html_content = html_content.replace('USEAPI_CHECKED', '')
-        html_content = html_content.replace('SETTINGS_PANEL_SCRIPT', '// No default API usage')
     
     # 写入HTML模板到静态文件
     with open('templates/index.html', 'w', encoding='utf-8') as f:
@@ -339,6 +284,117 @@ def index():
         create_template()
     return render_template('index.html')
 
+# 流式输出生成器函数
+def generate_streaming_response(prompt, use_api):
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    
+    # 这里不再考虑传入的use_api参数，完全依赖环境变量
+    env_use_api = os.environ.get("USE_DEEPSEEK_API", "").lower() in ['true', '1', 'yes']
+    use_api = env_use_api  # 强制使用环境变量设置
+    
+    print(f"[DEBUG] 流式响应开始 - 使用API: {use_api}")
+    
+    # 立即发送一个初始化消息
+    yield json.dumps({"chunk": "正在准备您的穿搭建议...\n\n"})
+    time.sleep(0.5)  # 短暂延迟
+    
+    if use_api and api_key:
+        print(f"- 使用API: {use_api} (环境变量设置)")
+        if api_key:
+            masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "***"
+            print(f"- API密钥: {masked_key} (长度: {len(api_key)})")
+        
+        try:
+            # 导入API客户端
+            from deepseek_client import DeepseekClient
+            client = DeepseekClient(api_key=api_key)
+            
+            print("正在调用Deepseek API...")
+            # 调用API获取流式响应
+            response_generator = client.chat_stream(
+                prompt=prompt,
+                temperature=0.7,
+                top_p=0.9,
+                max_tokens=1500
+            )
+            
+            # 明确的生成开始标记
+            yield json.dumps({"chunk": "【Deepseek AI 正在生成穿搭建议...】\n\n"})
+            
+            full_content = ""
+            chunk_count = 0
+            
+            for chunk in response_generator:
+                chunk_count += 1
+                full_content += chunk
+                print(f"[DEBUG] 接收到内容片段 #{chunk_count}: 长度={len(chunk)}")
+                yield json.dumps({"chunk": chunk})
+                # 小延迟使输出更自然
+                time.sleep(0.05)
+            
+            print(f"[DEBUG] API响应生成完成，总共片段数: {chunk_count}, 总长度: {len(full_content)}")
+            
+            # 如果没有内容，返回提示
+            if not full_content.strip():
+                print("[WARNING] API返回了空内容")
+                yield json.dumps({"chunk": "\n\n【API返回了空内容，正在切换到默认示例...】\n\n"})
+                time.sleep(1)
+                
+                # 加载示例回答
+                from example_responses import get_outfit_example
+                example = get_outfit_example(prompt)
+                
+                # 分割示例回答，逐段输出
+                chunks = [example[i:i+20] for i in range(0, len(example), 20)]
+                for chunk in chunks:
+                    yield json.dumps({"chunk": chunk})
+                    time.sleep(0.02)  # 快速输出示例回答
+            
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] 调用API时出错: {str(e)}")
+            print(traceback.format_exc())
+            # 如果API调用失败，返回错误信息
+            yield json.dumps({"chunk": f"\n\n【API调用出错】: {str(e)}\n\n正在切换到默认示例..."})
+            time.sleep(1)
+            
+            # 加载示例回答
+            from example_responses import get_outfit_example
+            example = get_outfit_example(prompt)
+            
+            # 分割示例回答，逐段输出
+            chunks = [example[i:i+20] for i in range(0, len(example), 20)]
+            for chunk in chunks:
+                yield json.dumps({"chunk": chunk})
+                time.sleep(0.02)  # 快速输出示例回答
+    else:
+        if not use_api:
+            print("[INFO] 未启用API，使用示例回答")
+            yield json.dumps({"chunk": "【使用默认示例穿搭建议】\n\n"})
+        else:
+            print("[WARNING] 未提供API密钥，使用示例回答")
+            yield json.dumps({"chunk": "【未设置API密钥，使用默认示例】\n\n"})
+        
+        time.sleep(0.5)
+        
+        # 加载示例回答
+        from example_responses import get_outfit_example
+        example = get_outfit_example(prompt)
+        
+        # 分割示例回答，逐段输出
+        chunks = [example[i:i+20] for i in range(0, len(example), 20)]
+        print(f"[DEBUG] 示例回答分割为 {len(chunks)} 个部分")
+        
+        for i, chunk in enumerate(chunks):
+            if i % 10 == 0:  # 每10个片段打印一次日志
+                print(f"[DEBUG] 发送示例片段 #{i+1}/{len(chunks)}")
+            yield json.dumps({"chunk": chunk})
+            time.sleep(0.01)  # 快速输出示例回答
+    
+    # 传输完成标记
+    print("[DEBUG] 流式传输完成")
+    yield json.dumps({"chunk": "\n\n【穿搭建议生成完毕】"})
+
 # API端点，处理穿搭建议请求
 @app.route('/get_recommendation', methods=['POST'])
 def get_recommendation():
@@ -347,21 +403,13 @@ def get_recommendation():
         scenario = data.get('scenario', '')
         query = data.get('query', '')
         
-        # 修改：优先使用环境变量中的设置，如果.env中设置了USE_DEEPSEEK_API=true，则忽略前端传入的use_api值
+        # 仅从环境变量获取API设置
         env_use_api = os.environ.get("USE_DEEPSEEK_API", "").lower() in ['true', '1', 'yes']
-        use_api = env_use_api if env_use_api else data.get('use_api', False)
-        
-        api_key = data.get('api_key', '').strip() or os.environ.get("DEEPSEEK_API_KEY", "").strip()
         
         print(f"\nWeb API请求:")
         print(f"- 场景: {scenario}")
         print(f"- 查询: {query}")
-        print(f"- 使用API: {use_api} (环境变量设置: {env_use_api})")
-        if api_key:
-            masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "***"
-            print(f"- API密钥: {masked_key} (长度: {len(api_key)})")
-        else:
-            print("- API密钥: 未提供")
+        print(f"- 使用API: {env_use_api} (环境变量设置)")
         
         # 组合用户查询
         full_query = f"场景：{scenario}\n具体需求：{query}"
@@ -378,15 +426,11 @@ def get_recommendation():
         # 创建提示词
         prompt = create_prompt(full_query, body_data, wardrobe_data, weather_data, stylist_template)
         
-        # 生成穿搭建议
-        print(f"11生成穿搭建议的提示词: {prompt}") 
-        print(f"11use_api: {use_api}")
-        print(f"11api_key: {api_key}")
-
-        recommendation = generate_outfit_recommendation(prompt, use_api=use_api, api_key=api_key)
-        
-        print("穿搭建议生成成功，长度:", len(recommendation))
-        return jsonify({"recommendation": recommendation})
+        # 返回流式响应 - 传递环境变量中的API设置，不使用前端传入的参数
+        return Response(
+            stream_with_context(generate_streaming_response(prompt, env_use_api)),
+            content_type='application/json'
+        )
         
     except Exception as e:
         import traceback
