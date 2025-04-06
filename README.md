@@ -13,6 +13,7 @@ Stylist4deepseek 是一个基于 deepseek 大语言模型的个性化穿搭推�
 - **体型优化**：根据用户体型特点，推荐能够提升整体比例的穿搭组合
 - **专业解析**：提供穿搭建议的专业理论依据和实用建议
 - **Deepseek API集成**：支持通过Deepseek大语言模型API生成智能穿搭方案
+- **流式响应**：Web应用中穿搭建议以逐字显示方式呈现，提供更好的用户体验
 
 ## 项目结构
 
@@ -23,6 +24,8 @@ Stylist4deepseek/
 ├── API_INTEGRATION.md     # Deepseek API集成指南
 ├── requirements.txt       # Python依赖文件
 ├── .env.template          # 环境变量模板
+├── .env                   # 环境变量文件（包含API配置，被git忽略）
+├── .gitignore             # Git忽略文件配置
 ├── stylist_app.py         # 命令行应用主程序
 ├── webapp.py              # Web应用主程序
 ├── deepseek_client.py     # Deepseek API客户端
@@ -51,6 +54,7 @@ Stylist4deepseek/
 2. **Web应用**：使用Flask框架实现的轻量级Web界面，提供友好的用户交互体验
 3. **AI模型**：基于提示词工程，将用户需求、个人信息、衣橱数据和天气情况等组合成高质量的提示词，交给deepseek大语言模型进行处理
 4. **API集成**：支持通过Deepseek API获取专业穿搭建议，能够根据实际情况智能推荐
+5. **流式响应**：Web应用支持逐字显示生成内容，提供更好的实时反馈体验
 
 穿搭推荐遵循以下流程：
 1. 接收用户场景需求（如工作、约会等）
@@ -74,23 +78,31 @@ python stylist_app.py --query "我今天要参加一个重要的商务会议，�
 
 # 使用Deepseek API生成更智能的穿搭建议
 python stylist_app.py --query "我今天要参加一个重要的商务会议" --use-api --api-key YOUR_API_KEY
+
+# 或者使用环境变量中配置的API（在.env文件中设置）
+python stylist_app.py --query "我今天要参加一个重要的商务会议" --use-api
 ```
 
 ### Web应用方式
 
-1. 启动Web应用：`python webapp.py`
-2. 浏览器访问：http://localhost:5000
-3. 选择场景并填写具体需求
-4. 可选：在高级设置中配置Deepseek API
+1. 在`.env`文件中配置Deepseek API（如需使用API功能）
+2. 启动Web应用：`python webapp.py`
+3. 浏览器访问：http://localhost:5000
+4. 选择场景并填写具体需求
 5. 点击"获取穿搭建议"按钮
+6. 穿搭建议将以流式方式逐字显示
 
 ## Deepseek API集成
 
 Stylist4deepseek支持通过Deepseek API生成更智能、更个性化的穿搭建议。使用API前需要完成以下步骤：
 
 1. 获取Deepseek API密钥（[详细说明](API_INTEGRATION.md)）
-2. 配置API密钥（环境变量、命令行参数或Web界面）
-3. 启用API使用（通过参数`--use-api`或Web界面设置）
+2. 配置API密钥（环境变量或命令行参数）：
+   - 在`.env`文件中设置`DEEPSEEK_API_KEY=你的API密钥`
+   - 或在命令行中使用`--api-key`参数
+3. 启用API使用（通过`.env`文件中的`USE_DEEPSEEK_API=true`或命令行参数`--use-api`）
+
+> 注意：`.env`文件包含敏感信息，已添加到`.gitignore`中，不会被提交到代码仓库
 
 详细的API集成说明请参考[API_INTEGRATION.md](API_INTEGRATION.md)文件。
 
