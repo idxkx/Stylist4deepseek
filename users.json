@@ -1,0 +1,65 @@
+{
+  "users": [
+    {
+      "id": "user1",
+      "name": "林晓梦",
+      "age": 33,
+      "gender": "女",
+      "profession": "互联网UED设计师",
+      "location": "杭州",
+      "style_preference": "极简都市通勤风、法式慵懒风",
+      "body_type": "微胖，梨形体型",
+      "profile_image": "user1.jpg",
+      "description": "设计师，注重细节与质感，追求可持续时尚"
+    },
+    {
+      "id": "user2",
+      "name": "王浩然",
+      "age": 28,
+      "gender": "男",
+      "profession": "金融分析师",
+      "location": "上海",
+      "style_preference": "商务精英风、都市休闲风",
+      "body_type": "健身型，倒三角",
+      "profile_image": "user2.jpg",
+      "description": "工作繁忙的金融才俊，周内商务正装，周末休闲随性"
+    },
+    {
+      "id": "user3",
+      "name": "张雨晴",
+      "age": 22,
+      "gender": "女",
+      "profession": "大学应届生",
+      "location": "北京",
+      "style_preference": "学院风、韩系街头风",
+      "body_type": "娇小型，平胸",
+      "profile_image": "user3.jpg",
+      "description": "刚毕业的大学生，正在转变形象，准备踏入职场"
+    },
+    {
+      "id": "user4",
+      "name": "陈明远",
+      "age": 45,
+      "gender": "男",
+      "profession": "建筑设计总监",
+      "location": "广州",
+      "style_preference": "成熟简约风、轻奢休闲风",
+      "body_type": "偏胖，啤酒肚",
+      "profile_image": "user4.jpg",
+      "description": "事业有成的中年男性，重视品质，偏好舒适经典款式"
+    },
+    {
+      "id": "user5",
+      "name": "赵梦琪",
+      "age": 25,
+      "gender": "女",
+      "profession": "旅游博主",
+      "location": "成都",
+      "style_preference": "波西米亚风、户外机能风",
+      "body_type": "高挑苗条，直角肩",
+      "profile_image": "user5.jpg",
+      "description": "旅行达人，需要兼顾拍照美观与旅行功能性"
+    }
+  ],
+  "selected_user": "user1"
+} 

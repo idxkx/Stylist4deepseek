@@ -25,11 +25,58 @@ app = Flask(__name__)
 if not os.path.exists('templates'):
     os.makedirs('templates')
 
+# 用户数据加载函数
+def load_users_data():
+    try:
+        with open('users.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"加载用户数据出错: {str(e)}")
+        return {"users": [], "selected_user": ""}
+
+# 用户数据保存函数
+def save_users_data(data):
+    try:
+        with open('users.json', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"保存用户数据出错: {str(e)}")
+        return False
+
+# 加载指定用户的数据
+def load_user_specific_data(user_id):
+    body_data = load_file_content(f'users/{user_id}/body_data.md')
+    weather_data = load_file_content(f'users/{user_id}/weather_forecast.md')
+    wardrobe_data = load_file_content(f'users/{user_id}/wardrobe.md')
+    
+    # 如果用户特定数据不存在，使用默认数据
+    if not body_data:
+        body_data = load_file_content('body_data.md')
+    if not weather_data:
+        weather_data = load_file_content('weather_forecast.md')
+    if not wardrobe_data:
+        wardrobe_data = load_file_content('wardrobe.md')
+    
+    return {
+        "body_data": body_data,
+        "weather_data": weather_data,
+        "wardrobe_data": wardrobe_data
+    }
+
 # 创建简单的HTML模板
 @app.route('/create_template')
 def create_template():
+    print("\n==== 开始创建/更新HTML模板 ====")
+    
+    # 检查模板目录是否存在
+    if not os.path.exists('templates'):
+        print("创建templates目录")
+        os.makedirs('templates')
+    
     html_content = r"""
 <!DOCTYPE html>
+<!-- 此模板由create_template函数生成 - 生成时间: """ + time.strftime("%Y-%m-%d %H:%M:%S") + r""" -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -40,7 +87,7 @@ def create_template():
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f9f9f9;
@@ -146,31 +193,120 @@ def create_template():
             font-size: 12px;
             color: #666;
         }
+        .user-profile {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .user-info {
+            margin-bottom: 15px;
+        }
+        .user-info h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            margin-bottom: -1px;
+        }
+        .tab.active {
+            border: 1px solid #ddd;
+            border-bottom-color: #fff;
+            background-color: #fff;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        .tab-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .flex-container {
+            display: flex;
+            gap: 20px;
+        }
+        .col-left {
+            flex: 1;
+        }
+        .col-right {
+            flex: 1;
+        }
+        .user-select {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Stylist4deepseek<br><small>个性化穿搭推荐</small></h1>
         
-        <div class="form-group">
-            <label for="scenario">场景选择：</label>
-            <select id="scenario">
-                <option value="工作场合">工作场合</option>
-                <option value="约会">约会</option>
-                <option value="休闲日常">休闲日常</option>
-                <option value="重要会议">重要会议</option>
-                <option value="户外活动">户外活动</option>
-                <option value="派对">派对</option>
-                <option value="其他">其他（在需求中详述）</option>
+        <div class="form-group user-select">
+            <label for="user">选择用户：</label>
+            <select id="user">
+                <!-- 将通过JavaScript动态填充 -->
             </select>
         </div>
         
-        <div class="form-group">
-            <label for="query">您的穿搭需求：</label>
-            <textarea id="query" rows="4" placeholder="请描述您需要什么场合的穿搭，有什么特殊要求..."></textarea>
+        <div class="user-profile" id="user-profile">
+            <!-- 用户信息将通过JavaScript动态填充 -->
         </div>
         
-        <button id="submit">获取穿搭建议</button>
+        <div class="flex-container">
+            <div class="col-left">
+                <div class="tabs">
+                    <div class="tab active" data-tab="body-data">身体数据</div>
+                    <div class="tab" data-tab="weather-data">天气数据</div>
+                </div>
+                
+                <div class="tab-content active" id="body-data">
+                    <!-- 身体数据内容将通过JavaScript动态填充 -->
+                </div>
+                
+                <div class="tab-content" id="weather-data">
+                    <!-- 天气数据内容将通过JavaScript动态填充 -->
+                </div>
+            </div>
+            
+            <div class="col-right">
+                <div class="form-group">
+                    <label for="scenario">场景选择：</label>
+                    <select id="scenario">
+                        <option value="工作场合">工作场合</option>
+                        <option value="约会">约会</option>
+                        <option value="休闲日常">休闲日常</option>
+                        <option value="重要会议">重要会议</option>
+                        <option value="户外活动">户外活动</option>
+                        <option value="派对">派对</option>
+                        <option value="其他">其他（在需求中详述）</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="query">您的穿搭需求：</label>
+                    <textarea id="query" rows="4" placeholder="请描述您需要什么场合的穿搭，有什么特殊要求..."></textarea>
+                </div>
+                
+                <button id="submit">获取穿搭建议</button>
+            </div>
+        </div>
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
@@ -187,6 +323,109 @@ def create_template():
     </footer>
 
     <script>
+        // 全局变量存储用户数据
+        let usersData = {};
+        let selectedUserId = '';
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载用户数据
+            fetchUsers();
+            
+            // 标签页切换功能
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // 移除所有标签页的active类
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    // 移除所有内容区的active类
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // 给当前点击的标签页添加active类
+                    this.classList.add('active');
+                    // 激活对应的内容区
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // 用户选择变更事件
+            document.getElementById('user').addEventListener('change', function() {
+                selectedUserId = this.value;
+                // 更新用户信息显示
+                updateUserInfo();
+                // 加载用户特定数据
+                fetchUserData(selectedUserId);
+            });
+        });
+        
+        // 获取所有用户数据
+        function fetchUsers() {
+            fetch('/api/users')
+                .then(response => response.json())
+                .then(data => {
+                    usersData = data;
+                    // 填充用户选择下拉框
+                    const userSelect = document.getElementById('user');
+                    userSelect.innerHTML = '';
+                    
+                    data.users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.id;
+                        option.textContent = `${user.name} (${user.profession})`;
+                        userSelect.appendChild(option);
+                        
+                        // 设置默认选中的用户
+                        if (user.id === data.selected_user) {
+                            option.selected = true;
+                            selectedUserId = user.id;
+                        }
+                    });
+                    
+                    // 更新用户信息显示
+                    updateUserInfo();
+                    // 加载用户特定数据
+                    fetchUserData(selectedUserId);
+                })
+                .catch(error => {
+                    console.error('获取用户数据失败:', error);
+                    alert('加载用户数据失败，请刷新页面重试');
+                });
+        }
+        
+        // 更新用户信息显示
+        function updateUserInfo() {
+            const user = usersData.users.find(u => u.id === selectedUserId);
+            if (!user) return;
+            
+            const profileElement = document.getElementById('user-profile');
+            profileElement.innerHTML = `
+                <div class="user-info">
+                    <h3>${user.name}</h3>
+                    <p><strong>年龄:</strong> ${user.age}岁 | <strong>性别:</strong> ${user.gender} | <strong>职业:</strong> ${user.profession}</p>
+                    <p><strong>地点:</strong> ${user.location} | <strong>体型:</strong> ${user.body_type}</p>
+                    <p><strong>风格偏好:</strong> ${user.style_preference}</p>
+                    <p><strong>个人简介:</strong> ${user.description}</p>
+                </div>
+            `;
+        }
+        
+        // 获取用户特定数据（身体特征和天气）
+        function fetchUserData(userId) {
+            fetch(`/api/user-data/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // 填充身体数据
+                    document.getElementById('body-data').innerHTML = `<pre>${data.body_data}</pre>`;
+                    // 填充天气数据
+                    document.getElementById('weather-data').innerHTML = `<pre>${data.weather_data}</pre>`;
+                })
+                .catch(error => {
+                    console.error('获取用户特定数据失败:', error);
+                    alert('加载用户特定数据失败，请刷新页面重试');
+                });
+        }
+        
+        // 提交获取穿搭建议
         document.getElementById('submit').addEventListener('click', function() {
             const scenario = document.getElementById('scenario').value;
             const query = document.getElementById('query').value;
@@ -207,6 +446,7 @@ def create_template():
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    user_id: selectedUserId,
                     scenario: scenario,
                     query: query
                 }),
@@ -271,18 +511,77 @@ def create_template():
     """
     
     # 写入HTML模板到静态文件
-    with open('templates/index.html', 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    
-    return "模板创建成功！"
+    try:
+        with open('templates/index.html', 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        print(f"模板文件创建成功！长度: {len(html_content)} 字节")
+        print("==== 创建/更新HTML模板完成 ====\n")
+        return "模板创建成功！"
+    except Exception as e:
+        print(f"创建模板文件时出错: {str(e)}")
+        print("==== 创建/更新HTML模板失败 ====\n")
+        return f"创建模板文件时出错: {str(e)}"
 
 # 主页路由
 @app.route('/')
 def index():
-    # 如果模板不存在，先创建
-    if not os.path.exists('templates/index.html'):
+    # 强制每次都重新创建模板，确保使用最新版本
+    print("\n==== 访问主页，准备渲染模板 ====")
+    
+    try:
+        # 检查模板是否存在
+        template_exists = os.path.exists('templates/index.html')
+        print(f"模板文件存在: {template_exists}")
+        
+        # 删除旧模板并创建新的
+        if template_exists:
+            os.remove('templates/index.html')
+            print("已删除旧模板文件")
+        
+        # 创建新模板
         create_template()
-    return render_template('index.html')
+        
+        # 确认模板已创建
+        template_exists = os.path.exists('templates/index.html')
+        print(f"新模板文件创建状态: {template_exists}")
+        
+        # 渲染模板
+        return render_template('index.html')
+    except Exception as e:
+        print(f"主页路由出错: {str(e)}")
+        return f"渲染主页时出错: {str(e)}"
+
+# 调试页面路由
+@app.route('/debug')
+def debug():
+    return render_template('debug.html')
+
+# API端点 - 获取所有用户列表
+@app.route('/api/users')
+def get_users():
+    users_data = load_users_data()
+    return jsonify(users_data)
+
+# API端点 - 获取用户特定数据（身体特征和天气）
+@app.route('/api/user-data/<user_id>')
+def get_user_data(user_id):
+    user_data = load_user_specific_data(user_id)
+    return jsonify(user_data)
+
+# API端点 - 更新选定的用户
+@app.route('/api/select-user', methods=['POST'])
+def select_user():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        users_data = load_users_data()
+        users_data['selected_user'] = user_id
+        save_users_data(users_data)
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # 流式输出生成器函数
 def generate_streaming_response(prompt, use_api):
@@ -400,6 +699,7 @@ def generate_streaming_response(prompt, use_api):
 def get_recommendation():
     try:
         data = request.get_json()
+        user_id = data.get('user_id', '')
         scenario = data.get('scenario', '')
         query = data.get('query', '')
         
@@ -407,6 +707,7 @@ def get_recommendation():
         env_use_api = os.environ.get("USE_DEEPSEEK_API", "").lower() in ['true', '1', 'yes']
         
         print(f"\nWeb API请求:")
+        print(f"- 用户ID: {user_id}")
         print(f"- 场景: {scenario}")
         print(f"- 查询: {query}")
         print(f"- 使用API: {env_use_api} (环境变量设置)")
@@ -414,10 +715,13 @@ def get_recommendation():
         # 组合用户查询
         full_query = f"场景：{scenario}\n具体需求：{query}"
         
-        # 加载必要文件
-        body_data = load_file_content('body_data.md')
-        wardrobe_data = load_file_content('wardrobe.md')
-        weather_data = load_file_content('weather_forecast.md')
+        # 加载用户特定数据
+        user_data = load_user_specific_data(user_id)
+        body_data = user_data['body_data']
+        weather_data = user_data['weather_data']
+        wardrobe_data = user_data['wardrobe_data']
+        
+        # 加载通用数据
         stylist_template = load_file_content('fashion_stylist_agent.md')
         
         if not all([body_data, wardrobe_data, weather_data, stylist_template]):

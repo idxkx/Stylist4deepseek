@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API调试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+        }
+        .debug-section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .debug-section h2 {
+            margin-top: 0;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4a5568;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        select {
+            padding: 8px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .result {
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>API调试页面</h1>
+    
+    <div class="debug-section">
+        <h2>用户列表</h2>
+        <button id="fetch-users">获取所有用户</button>
+        <div class="result" id="users-result">
+            <p>结果将显示在这里...</p>
+        </div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>用户特定数据</h2>
+        <select id="user-select">
+            <option value="">请选择用户...</option>
+            <option value="user1">林晓梦 (user1)</option>
+            <option value="user2">王浩然 (user2)</option>
+            <option value="user3">张雨晴 (user3)</option>
+            <option value="user4">陈明远 (user4)</option>
+            <option value="user5">赵梦琪 (user5)</option>
+        </select>
+        <button id="fetch-user-data">获取用户数据</button>
+        <div class="result" id="user-data-result">
+            <p>结果将显示在这里...</p>
+        </div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>当前模板内容</h2>
+        <button id="fetch-template">获取主页模板</button>
+        <div class="result" id="template-result">
+            <p>结果将显示在这里...</p>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('fetch-users').addEventListener('click', function() {
+            const resultElement = document.getElementById('users-result');
+            resultElement.innerHTML = '<p>正在加载数据...</p>';
+            
+            fetch('/api/users')
+                .then(response => response.json())
+                .then(data => {
+                    const prettyJson = JSON.stringify(data, null, 2);
+                    resultElement.innerHTML = `<pre>${prettyJson}</pre>`;
+                })
+                .catch(error => {
+                    resultElement.innerHTML = `<p style="color: red;">错误: ${error.message}</p>`;
+                });
+        });
+        
+        document.getElementById('fetch-user-data').addEventListener('click', function() {
+            const userId = document.getElementById('user-select').value;
+            if (!userId) {
+                alert('请先选择一个用户');
+                return;
+            }
+            
+            const resultElement = document.getElementById('user-data-result');
+            resultElement.innerHTML = '<p>正在加载数据...</p>';
+            
+            fetch(`/api/user-data/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let html = '<h3>身体数据</h3>';
+                    html += `<pre>${data.body_data}</pre>`;
+                    
+                    html += '<h3>天气数据</h3>';
+                    html += `<pre>${data.weather_data}</pre>`;
+                    
+                    resultElement.innerHTML = html;
+                })
+                .catch(error => {
+                    resultElement.innerHTML = `<p style="color: red;">错误: ${error.message}</p>`;
+                });
+        });
+        
+        document.getElementById('fetch-template').addEventListener('click', function() {
+            const resultElement = document.getElementById('template-result');
+            resultElement.innerHTML = '<p>正在加载数据...</p>';
+            
+            fetch('/')
+                .then(response => response.text())
+                .then(html => {
+                    const preview = html.substring(0, 1000) + '...';
+                    resultElement.innerHTML = `
+                        <p>模板大小: ${html.length} 字节</p>
+                        <pre>${escapeHtml(preview)}</pre>
+                        <p>用户选择元素是否存在: ${html.includes('user-select') ? '是' : '否'}</p>
+                        <p>用户资料元素是否存在: ${html.includes('user-profile') ? '是' : '否'}</p>
+                        <p>身体数据标签页是否存在: ${html.includes('body-data') ? '是' : '否'}</p>
+                        <p>天气数据标签页是否存在: ${html.includes('weather-data') ? '是' : '否'}</p>
+                    `;
+                })
+                .catch(error => {
+                    resultElement.innerHTML = `<p style="color: red;">错误: ${error.message}</p>`;
+                });
+        });
+        
+        // 辅助函数，转义HTML字符
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html> 

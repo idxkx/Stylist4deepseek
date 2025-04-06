@@ -1,5 +1,6 @@
 
 <!DOCTYPE html>
+<!-- 此模板由create_template函数生成 - 生成时间: 2025-04-06 22:23:30 -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -10,7 +11,7 @@
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f9f9f9;
@@ -116,31 +117,120 @@
             font-size: 12px;
             color: #666;
         }
+        .user-profile {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .user-info {
+            margin-bottom: 15px;
+        }
+        .user-info h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            margin-bottom: -1px;
+        }
+        .tab.active {
+            border: 1px solid #ddd;
+            border-bottom-color: #fff;
+            background-color: #fff;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        .tab-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .flex-container {
+            display: flex;
+            gap: 20px;
+        }
+        .col-left {
+            flex: 1;
+        }
+        .col-right {
+            flex: 1;
+        }
+        .user-select {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Stylist4deepseek<br><small>个性化穿搭推荐</small></h1>
         
-        <div class="form-group">
-            <label for="scenario">场景选择：</label>
-            <select id="scenario">
-                <option value="工作场合">工作场合</option>
-                <option value="约会">约会</option>
-                <option value="休闲日常">休闲日常</option>
-                <option value="重要会议">重要会议</option>
-                <option value="户外活动">户外活动</option>
-                <option value="派对">派对</option>
-                <option value="其他">其他（在需求中详述）</option>
+        <div class="form-group user-select">
+            <label for="user">选择用户：</label>
+            <select id="user">
+                <!-- 将通过JavaScript动态填充 -->
             </select>
         </div>
         
-        <div class="form-group">
-            <label for="query">您的穿搭需求：</label>
-            <textarea id="query" rows="4" placeholder="请描述您需要什么场合的穿搭，有什么特殊要求..."></textarea>
+        <div class="user-profile" id="user-profile">
+            <!-- 用户信息将通过JavaScript动态填充 -->
         </div>
         
-        <button id="submit">获取穿搭建议</button>
+        <div class="flex-container">
+            <div class="col-left">
+                <div class="tabs">
+                    <div class="tab active" data-tab="body-data">身体数据</div>
+                    <div class="tab" data-tab="weather-data">天气数据</div>
+                </div>
+                
+                <div class="tab-content active" id="body-data">
+                    <!-- 身体数据内容将通过JavaScript动态填充 -->
+                </div>
+                
+                <div class="tab-content" id="weather-data">
+                    <!-- 天气数据内容将通过JavaScript动态填充 -->
+                </div>
+            </div>
+            
+            <div class="col-right">
+                <div class="form-group">
+                    <label for="scenario">场景选择：</label>
+                    <select id="scenario">
+                        <option value="工作场合">工作场合</option>
+                        <option value="约会">约会</option>
+                        <option value="休闲日常">休闲日常</option>
+                        <option value="重要会议">重要会议</option>
+                        <option value="户外活动">户外活动</option>
+                        <option value="派对">派对</option>
+                        <option value="其他">其他（在需求中详述）</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="query">您的穿搭需求：</label>
+                    <textarea id="query" rows="4" placeholder="请描述您需要什么场合的穿搭，有什么特殊要求..."></textarea>
+                </div>
+                
+                <button id="submit">获取穿搭建议</button>
+            </div>
+        </div>
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
@@ -157,6 +247,109 @@
     </footer>
 
     <script>
+        // 全局变量存储用户数据
+        let usersData = {};
+        let selectedUserId = '';
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载用户数据
+            fetchUsers();
+            
+            // 标签页切换功能
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // 移除所有标签页的active类
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    // 移除所有内容区的active类
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // 给当前点击的标签页添加active类
+                    this.classList.add('active');
+                    // 激活对应的内容区
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // 用户选择变更事件
+            document.getElementById('user').addEventListener('change', function() {
+                selectedUserId = this.value;
+                // 更新用户信息显示
+                updateUserInfo();
+                // 加载用户特定数据
+                fetchUserData(selectedUserId);
+            });
+        });
+        
+        // 获取所有用户数据
+        function fetchUsers() {
+            fetch('/api/users')
+                .then(response => response.json())
+                .then(data => {
+                    usersData = data;
+                    // 填充用户选择下拉框
+                    const userSelect = document.getElementById('user');
+                    userSelect.innerHTML = '';
+                    
+                    data.users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.id;
+                        option.textContent = `${user.name} (${user.profession})`;
+                        userSelect.appendChild(option);
+                        
+                        // 设置默认选中的用户
+                        if (user.id === data.selected_user) {
+                            option.selected = true;
+                            selectedUserId = user.id;
+                        }
+                    });
+                    
+                    // 更新用户信息显示
+                    updateUserInfo();
+                    // 加载用户特定数据
+                    fetchUserData(selectedUserId);
+                })
+                .catch(error => {
+                    console.error('获取用户数据失败:', error);
+                    alert('加载用户数据失败，请刷新页面重试');
+                });
+        }
+        
+        // 更新用户信息显示
+        function updateUserInfo() {
+            const user = usersData.users.find(u => u.id === selectedUserId);
+            if (!user) return;
+            
+            const profileElement = document.getElementById('user-profile');
+            profileElement.innerHTML = `
+                <div class="user-info">
+                    <h3>${user.name}</h3>
+                    <p><strong>年龄:</strong> ${user.age}岁 | <strong>性别:</strong> ${user.gender} | <strong>职业:</strong> ${user.profession}</p>
+                    <p><strong>地点:</strong> ${user.location} | <strong>体型:</strong> ${user.body_type}</p>
+                    <p><strong>风格偏好:</strong> ${user.style_preference}</p>
+                    <p><strong>个人简介:</strong> ${user.description}</p>
+                </div>
+            `;
+        }
+        
+        // 获取用户特定数据（身体特征和天气）
+        function fetchUserData(userId) {
+            fetch(`/api/user-data/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // 填充身体数据
+                    document.getElementById('body-data').innerHTML = `<pre>${data.body_data}</pre>`;
+                    // 填充天气数据
+                    document.getElementById('weather-data').innerHTML = `<pre>${data.weather_data}</pre>`;
+                })
+                .catch(error => {
+                    console.error('获取用户特定数据失败:', error);
+                    alert('加载用户特定数据失败，请刷新页面重试');
+                });
+        }
+        
+        // 提交获取穿搭建议
         document.getElementById('submit').addEventListener('click', function() {
             const scenario = document.getElementById('scenario').value;
             const query = document.getElementById('query').value;
@@ -177,6 +370,7 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    user_id: selectedUserId,
                     scenario: scenario,
                     query: query
                 }),
