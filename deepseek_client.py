@@ -43,7 +43,7 @@ class DeepseekClient:
         else:
             print("警告: 未设置认证头部")
     
-    def generate_completion(self, prompt: str, model: str = "deepseek-chat", max_tokens: int = 2000, 
+    def generate_completion(self, prompt: str, model: str = "deepseek-reasoner", max_tokens: int = 2000, 
                           temperature: float = 0.7) -> Dict[Any, Any]:
         """
         生成文本完成
