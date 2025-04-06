@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- [fashion_stylist_agent.md](mdc:fashion_stylist_agent.md) 这是穿搭设计师Agent提示词，可用于设定deepseek身份技能的提示词
+- [body_data.md](mdc:body_data.md) 这是模拟消费者的个人信息，可以用于给deepseek的信息输入，作为今日穿搭的输入信息
+- [wardrobe.md](mdc:wardrobe.md) 这是模拟消费者的衣橱内衣物信息，可以用于deepseek的输入信息，作为作为今日穿搭的衣服选择范围限定
+- [weather_forecast.md](mdc:weather_forecast.md) 这是模拟当日的天气信息，可以用于deepseek的输入信息，作为今日穿搭的参考信息
+
+
